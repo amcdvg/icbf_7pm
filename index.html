@@ -192,6 +192,19 @@
             font-size: 0.9rem;
         }
 
+        .btn-submit:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-submit:disabled:hover {
+            background: #6c757d;
+            transform: none;
+            box-shadow: none;
+        }
+
         input.input-error {
             border: 2px solid #f44336;
             background-color: #ffebee;
@@ -220,6 +233,17 @@
         .checkbox-group label {
             margin-bottom: 0;
             font-size: 0.85rem;
+        }
+
+        .limit-reached-message {
+            text-align: center;
+            background: linear-gradient(135deg, #ff6b6b, #ee5a52);
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            font-weight: 600;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         @keyframes fadeIn {
@@ -269,7 +293,11 @@
 
         <h2 class="form-title">Entrega de alimento nutricional </h2>
 
-        <form action="#" method="post">
+        <div id="limitMessage" class="limit-reached-message" style="display: none;">
+            <i class="fas fa-exclamation-triangle"></i> LÍMITE ALCANZADO - Ya se han registrado 50 beneficiarios
+        </div>
+
+        <form action="#" method="post" id="registrationForm">
 
             <div class="form-group">
                 <label for="nombre">Nombre Completo</label>
@@ -324,24 +352,27 @@
                 <label for="autorizacion">Autorizo el tratamiento de mis datos personales</label>
             </div>
             
-            <button type="submit" class="btn-submit">
+            <button type="submit" class="btn-submit" id="submitButton">
                 Enviar <i class="fas fa-paper-plane"></i>
             </button>
         </form>
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            // Verificar el límite al cargar la página
+            checkRegistrationLimit();
+            
             // Manejo del envío del formulario
-            document.querySelector('.form-container form').addEventListener('submit', function (event) {
+            document.getElementById('registrationForm').addEventListener('submit', function (event) {
                 event.preventDefault();
 
                 const form = event.target;
                 const formData = new FormData(form);
                 const numeroIdentificacion = formData.get('Número de identificación').trim();
                 const data = {};
-                            formData.forEach((value, key) => {
-                                data[key] = value;
-                            });
+                formData.forEach((value, key) => {
+                    data[key] = value;
+                });
                 console.log(data)
                 
                 // Validación de campos obligatorios
@@ -367,11 +398,6 @@
                             showCustomAlert('Formulario no enviado. La persona ya está registrada para recibir el alimento.', 'error');
                             hideLoadingSpinner();
                         } else {
-                            const data = {};
-                            formData.forEach((value, key) => {
-                                data[key] = value;
-                            });
-                            console.log(data)
                             // Envío de datos al servidor
                             sendDataToServer(data, form);
                         }
@@ -402,9 +428,38 @@
                     });
             });
 
+            // Función para verificar el límite de registros
+            function checkRegistrationLimit() {
+                const scriptURL = 'https://script.google.com/macros/s/AKfycbx4b1jG2dNc8ZTDv1E-gsotksknD_cBy5ciujNyNLXOOsJ7AWHEVNoyN9TjlR9VjwVE6A/exec';
+                
+                fetch(`${scriptURL}?checkLimit=true`)
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.limitReached) {
+                            disableForm();
+                            document.getElementById('limitMessage').style.display = 'block';
+                            showCustomAlert('¡Límite alcanzado! Ya se han registrado 50 beneficiarios. No se aceptan más registros.', 'error');
+                        } else {
+                            // Mostrar contador actual (opcional)
+                            console.log(`Registros actuales: ${data.currentCount}/50`);
+                        }
+                    })
+                    .catch(error => console.error('Error checking limit:', error));
+            }
+
+            function disableForm() {
+                const form = document.getElementById('registrationForm');
+                const inputs = form.querySelectorAll('input, select, button');
+                inputs.forEach(input => {
+                    input.disabled = true;
+                });
+                document.getElementById('submitButton').innerHTML = 'REGISTROS CERRADOS <i class="fas fa-lock"></i>';
+                document.getElementById('submitButton').style.background = '#6c757d';
+            }
+
             // Función para verificar el número de identificación en el servidor
             function checkNumeroIdentificacionInServer(numeroIdentificacion) {
-                const scriptURL = 'https://script.google.com/macros/s/AKfycbzzsAn8ZcZ0Vae0vjALMtEMj-VhKHfEIAcV8J00tZnOI8xI6k_KL3ut7ngB5BOuQ3btVQ/exec';
+                const scriptURL = 'https://script.google.com/macros/s/AKfycbx4b1jG2dNc8ZTDv1E-gsotksknD_cBy5ciujNyNLXOOsJ7AWHEVNoyN9TjlR9VjwVE6A/exec';
                 
                 return fetch(`${scriptURL}?Número de identificación=${encodeURIComponent(numeroIdentificacion)}`)
                     .then(response => {
@@ -422,7 +477,7 @@
 
             // Función para enviar datos al servidor
             function sendDataToServer(data, form) {
-                const scriptURL = "https://script.google.com/macros/s/AKfycbzzsAn8ZcZ0Vae0vjALMtEMj-VhKHfEIAcV8J00tZnOI8xI6k_KL3ut7ngB5BOuQ3btVQ/exec";
+                const scriptURL = "https://script.google.com/macros/s/AKfycbx4b1jG2dNc8ZTDv1E-gsotksknD_cBy5ciujNyNLXOOsJ7AWHEVNoyN9TjlR9VjwVE6A/exec";
                 console.log(data)
                 fetch(scriptURL, {
                     method: 'POST',
